@@ -1,82 +1,102 @@
 # 🇧🇷 Bolão do Brasil — Copa 2026
 
 Aplicativo web para registro de palpites de placares dos jogos do Brasil na
-fase de grupos da Copa do Mundo 2026, **com persistência compartilhada em SQLite**.
+fase de grupos da Copa do Mundo 2026, **com persistência compartilhada** —
+todos que acessam o mesmo servidor veem os **mesmos palpites**.
 
 ## Diferença para a versão original
 
-A versão original guardava os palpites em **IndexedDB** (cada aparelho via apenas
-os seus). Esta versão usa um **servidor Node + banco SQLite**, então todos os
-participantes que acessam o mesmo servidor veem os **mesmos palpites**.
+A versão original guardava os palpites em **IndexedDB** (cada aparelho via
+apenas os seus). Esta versão usa um **servidor Node** com banco compartilhado.
+
+## Persistência (dois modos, escolhidos automaticamente)
+
+O servidor decide onde salvar conforme as variáveis de ambiente:
+
+| Quando… | Usa… | Uso típico |
+|---|---|---|
+| `SUPABASE_URL` **e** `SUPABASE_SERVICE_KEY` definidas | **Supabase** (Postgres) | Produção / acesso pelo celular |
+| caso contrário | **SQLite** (arquivo `bolao.db`) | Rodar no seu PC |
+
+Assim você desenvolve localmente com SQLite (sem precisar de nada externo) e,
+ao hospedar, aponta para o Supabase só definindo as duas variáveis.
 
 ## Stack
 
-- **Back-end:** Node.js puro, **sem dependências externas** — usa apenas módulos
-  nativos (`node:http`, `node:sqlite`, `node:fs`).
-- **Banco:** SQLite (arquivo `bolao.db`), via `node:sqlite` (Node ≥ 22.5).
+- **Back-end:** Node.js puro, **sem dependências externas** — só módulos
+  nativos (`node:http`, `node:sqlite`, `fetch`).
+- **Banco:** SQLite local (`node:sqlite`, Node ≥ 22.5) **ou** Supabase/Postgres
+  via API REST (PostgREST).
 - **Front-end:** HTML + CSS + JavaScript puro (`public/index.html`).
 
-## Como rodar
+## Rodar localmente (SQLite)
 
-Requer Node.js **22.5 ou superior** (o módulo `node:sqlite` é nativo).
+Requer Node.js **22.5 ou superior**.
 
 ```bash
-npm start
-# ou
-node server.js
+npm start          # ou: node server.js
 ```
 
-Depois abra <http://localhost:3000>.
+Abra <http://localhost:3000>. Os dados ficam em `bolao.db` na pasta do projeto.
 
-Variáveis de ambiente opcionais:
+Variáveis opcionais: `PORT` (padrão `3000`), `DB_PATH` (padrão `./bolao.db`).
 
-| Variável  | Padrão        | Descrição                      |
-|-----------|---------------|--------------------------------|
-| `PORT`    | `3000`        | Porta do servidor              |
-| `DB_PATH` | `./bolao.db`  | Caminho do arquivo SQLite      |
+---
 
-## Deploy no Render (usar no celular)
+## Hospedar de graça (Render + Supabase) — para usar no celular
 
-Para acessar pelo celular de qualquer lugar, hospede no [Render](https://render.com):
+A combinação **Render (plano free) + Supabase (plano free)** deixa o app no ar
+com um link público, sem custo. O Render pode hospedar de graça porque os
+dados não ficam nele (disco efêmero) e sim no Supabase.
 
-1. Crie uma conta gratuita no Render (pode entrar com o GitHub).
-2. No painel, clique em **New → Blueprint**.
-3. Selecione este repositório. O Render lê o `render.yaml` automaticamente.
+### Parte 1 — Criar o banco no Supabase
+
+1. Crie uma conta em <https://supabase.com> e um **novo projeto** (free).
+2. Abra **SQL Editor → New query**, cole o conteúdo de
+   [`supabase-schema.sql`](./supabase-schema.sql) e clique em **Run**.
+3. Em **Project Settings → API**, anote dois valores:
+   - **Project URL** → vira `SUPABASE_URL` (ex.: `https://xxxx.supabase.co`)
+   - **service_role** (em *Project API keys*) → vira `SUPABASE_SERVICE_KEY`
+
+> ⚠️ A chave **service_role** é secreta e dá acesso total ao banco. Ela fica
+> **só no servidor** (variável de ambiente) e nunca aparece no navegador.
+
+### Parte 2 — Publicar no Render
+
+1. Crie uma conta em <https://render.com> (pode entrar com o GitHub).
+2. **New → Blueprint** e selecione este repositório. O Render lê o
+   `render.yaml` automaticamente.
+3. Quando pedir as variáveis de ambiente, preencha:
+   - `SUPABASE_URL` = a Project URL do passo anterior
+   - `SUPABASE_SERVICE_KEY` = a chave service_role
 4. Confirme e aguarde o build. No fim, você recebe um link público
-   `https://....onrender.com` — abra no navegador do celular. Pronto.
+   `https://....onrender.com` — abra no celular. Pronto. 🎉
 
-> **Atenção (plano free):** o disco é efêmero, então os palpites são
-> apagados a cada novo deploy ou reinício do serviço. Para não perder os
-> dados, descomente o bloco `disk:` no `render.yaml` (exige plano pago).
+> **Observação (plano free do Render):** o serviço "dorme" após ~15 min sem
+> uso e leva ~30–60s para acordar no primeiro acesso seguinte. Os palpites
+> **não** se perdem, pois estão no Supabase.
+
+---
 
 ## Estrutura
 
 ```
-server.js           Servidor HTTP + API REST + camada SQLite
-public/index.html   Front-end single-page (UI + chamadas à API)
-bolao.db            Banco SQLite (criado automaticamente, fora do git)
+server.js               Servidor HTTP + API REST + seleção do armazenamento
+lib/store-sqlite.js     Implementação SQLite (local)
+lib/store-supabase.js   Implementação Supabase/Postgres (REST)
+lib/util.js             Utilidades (data/hora BR)
+public/index.html       Front-end single-page (UI + chamadas à API)
+supabase-schema.sql     Script para criar as tabelas no Supabase
+render.yaml             Blueprint de deploy no Render
+bolao.db                Banco SQLite local (criado automaticamente, fora do git)
 ```
 
-## Modelo de dados (SQLite)
+## Modelo de dados
 
-```sql
-CREATE TABLE palpites (
-  id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  nome   TEXT NOT NULL,
-  quando TEXT NOT NULL          -- "DD/MM/AAAA HH:MM" (fuso de Brasília)
-);
+Tabelas equivalentes nos dois bancos (`palpites` 1—N `placares`, com
+`ON DELETE CASCADE`). Veja `supabase-schema.sql` para o Postgres.
 
-CREATE TABLE placares (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  palpite_id INTEGER NOT NULL,  -- FK -> palpites.id (ON DELETE CASCADE)
-  jogo       TEXT NOT NULL,     -- ex.: "Bra×Mar"
-  casa       INTEGER NOT NULL,
-  fora       INTEGER NOT NULL,
-  ordem      INTEGER NOT NULL   -- ordem do jogo no palpite
-);
-```
-
-A API monta cada registro no mesmo formato JSON da versão original:
+A API monta cada registro neste formato JSON (igual ao da versão original):
 
 ```json
 {

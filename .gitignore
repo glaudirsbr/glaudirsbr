@@ -7,5 +7,9 @@ bolao.db-wal
 node_modules/
 npm-debug.log*
 
+# Variáveis de ambiente / segredos (chaves do Supabase)
+.env
+.env.*
+
 # Sistema
 .DS_Store

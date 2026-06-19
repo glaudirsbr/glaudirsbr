@@ -1,5 +1,9 @@
 # Blueprint do Render — https://render.com/docs/blueprint-spec
 # Para usar: no painel do Render -> "New" -> "Blueprint" -> selecione este repo.
+#
+# Persistência: este app usa o Supabase (Postgres) quando as variáveis
+# SUPABASE_URL e SUPABASE_SERVICE_KEY estão definidas. Por isso o plano FREE
+# do Render serve: os dados ficam no Supabase, não no disco efêmero do Render.
 services:
   - type: web
     name: bolao-do-brasil
@@ -11,19 +15,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22.11.0"
-      - key: DB_PATH
-        value: /var/data/bolao.db
-
-    # ----------------------------------------------------------------------
-    # IMPORTANTE sobre persistência dos dados:
-    #
-    # No plano FREE o disco é efêmero: os palpites são apagados a cada
-    # novo deploy ou reinício do serviço. Para o bolão de teste tudo bem,
-    # mas se quiser que os palpites NÃO se percam, descomente o bloco
-    # "disk" abaixo (exige um plano pago, ex.: "starter") — o caminho já
-    # está apontado para /var/data via DB_PATH acima.
-    # ----------------------------------------------------------------------
-    # disk:
-    #   name: bolao-data
-    #   mountPath: /var/data
-    #   sizeGB: 1
+      # Defina estes dois no painel do Render (Environment) — são segredos,
+      # por isso ficam com sync:false e NÃO no arquivo.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

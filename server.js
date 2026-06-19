@@ -2,127 +2,38 @@
 
 /**
  * Bolão do Brasil — Copa 2026
- * Servidor HTTP mínimo, sem dependências externas.
+ * Servidor HTTP mínimo, sem dependências externas (só módulos nativos do Node).
  *
- * - Usa apenas módulos nativos do Node (node:http, node:sqlite, node:fs, node:path).
  * - Serve o front-end (public/index.html).
- * - Expõe uma API REST com os palpites persistidos em SQLite.
+ * - Expõe uma API REST com os palpites.
+ * - Persistência plugável:
+ *     • Supabase (Postgres) — se SUPABASE_URL e SUPABASE_SERVICE_KEY existirem.
+ *     • SQLite (arquivo local) — caso contrário (ideal para rodar no PC).
  *
- * Mantém o mesmo formato de registro descrito na documentação, para que o
- * front-end troque apenas a camada "Banco" (IndexedDB -> API/SQLite).
+ * Formato de registro (mesmo nas duas camadas):
+ *   { id, nome, palpites: [{ jogo, casa, fora }], quando }
  */
 
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
 
 const PORT = process.env.PORT || 3000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'bolao.db');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // ----------------------------------------------------------------------------
-// Banco de dados
+// Seleção do armazenamento
 // ----------------------------------------------------------------------------
 
-// Garante que a pasta do banco exista (ex.: /var/data num host como o Render).
-fs.mkdirSync(path.dirname(path.resolve(DB_PATH)), { recursive: true });
-
-const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS palpites (
-    id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome   TEXT NOT NULL,
-    quando TEXT NOT NULL
+let store;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+  store = require('./lib/store-supabase').criarStore(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
   );
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS placares (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    palpite_id INTEGER NOT NULL,
-    jogo       TEXT NOT NULL,
-    casa       INTEGER NOT NULL,
-    fora       INTEGER NOT NULL,
-    ordem      INTEGER NOT NULL,
-    FOREIGN KEY (palpite_id) REFERENCES palpites(id) ON DELETE CASCADE
-  );
-`);
-
-// Statements reutilizáveis
-const stmtInsertPalpite = db.prepare(
-  'INSERT INTO palpites (nome, quando) VALUES (?, ?)'
-);
-const stmtInsertPlacar = db.prepare(
-  'INSERT INTO placares (palpite_id, jogo, casa, fora, ordem) VALUES (?, ?, ?, ?, ?)'
-);
-const stmtListPalpites = db.prepare(
-  'SELECT id, nome, quando FROM palpites ORDER BY id DESC'
-);
-const stmtPlacaresDe = db.prepare(
-  'SELECT jogo, casa, fora FROM placares WHERE palpite_id = ? ORDER BY ordem ASC'
-);
-const stmtGetPalpite = db.prepare(
-  'SELECT id, nome, quando FROM palpites WHERE id = ?'
-);
-const stmtDeletePalpite = db.prepare('DELETE FROM palpites WHERE id = ?');
-const stmtDeleteTudo = db.prepare('DELETE FROM palpites');
-
-/** Monta o registro completo (com placares) no formato documentado. */
-function montarRegistro(palpite) {
-  const placares = stmtPlacaresDe.all(palpite.id).map((p) => ({
-    jogo: p.jogo,
-    casa: p.casa,
-    fora: p.fora,
-  }));
-  return {
-    id: palpite.id,
-    nome: palpite.nome,
-    palpites: placares,
-    quando: palpite.quando,
-  };
-}
-
-function lerTodos() {
-  return stmtListPalpites.all().map(montarRegistro);
-}
-
-/** Data/hora atual no formato "DD/MM/AAAA HH:MM" (fuso de Brasília). */
-function agoraBR() {
-  const fmt = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const parts = Object.fromEntries(
-    fmt.formatToParts(new Date()).map((p) => [p.type, p.value])
-  );
-  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
-}
-
-/** Insere um palpite + seus placares dentro de uma transação. */
-function salvarPalpite(nome, placares) {
-  const quando = agoraBR();
-  const tx = db.prepare('BEGIN');
-  tx.run();
-  try {
-    const info = stmtInsertPalpite.run(nome, quando);
-    const palpiteId = info.lastInsertRowid;
-    placares.forEach((p, i) => {
-      stmtInsertPlacar.run(palpiteId, p.jogo, p.casa, p.fora, i);
-    });
-    db.prepare('COMMIT').run();
-    return montarRegistro(stmtGetPalpite.get(palpiteId));
-  } catch (err) {
-    db.prepare('ROLLBACK').run();
-    throw err;
-  }
+} else {
+  const dbPath = process.env.DB_PATH || path.join(__dirname, 'bolao.db');
+  store = require('./lib/store-sqlite').criarStore(dbPath);
 }
 
 // ----------------------------------------------------------------------------
@@ -222,9 +133,7 @@ function servirEstatico(req, res) {
       return;
     }
     const ext = path.extname(alvo).toLowerCase();
-    res.writeHead(200, {
-      'Content-Type': MIME[ext] || 'application/octet-stream',
-    });
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
     res.end(conteudo);
   });
 }
@@ -238,7 +147,7 @@ async function tratarApi(req, res) {
 
   // GET /api/palpites -> lista todos (mais recente primeiro)
   if (url === '/api/palpites' && req.method === 'GET') {
-    enviarJSON(res, 200, lerTodos());
+    enviarJSON(res, 200, await store.listar());
     return;
   }
 
@@ -256,14 +165,14 @@ async function tratarApi(req, res) {
       enviarJSON(res, 400, { erro });
       return;
     }
-    const registro = salvarPalpite(body.nome, body.palpites);
+    const registro = await store.criar(body.nome, body.palpites);
     enviarJSON(res, 201, registro);
     return;
   }
 
   // DELETE /api/palpites -> apaga todos
   if (url === '/api/palpites' && req.method === 'DELETE') {
-    stmtDeleteTudo.run();
+    await store.removerTodos();
     enviarJSON(res, 200, { ok: true });
     return;
   }
@@ -271,9 +180,8 @@ async function tratarApi(req, res) {
   // DELETE /api/palpites/:id -> apaga um
   const m = url.match(/^\/api\/palpites\/(\d+)$/);
   if (m && req.method === 'DELETE') {
-    const id = Number(m[1]);
-    const info = stmtDeletePalpite.run(id);
-    if (info.changes === 0) {
+    const ok = await store.remover(Number(m[1]));
+    if (!ok) {
       enviarJSON(res, 404, { erro: 'Palpite não encontrado.' });
       return;
     }
@@ -301,14 +209,14 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`🇧🇷 Bolão do Brasil rodando em http://localhost:${PORT}`);
-  console.log(`   Banco SQLite: ${DB_PATH}`);
+  console.log(`   Armazenamento: ${store.nome}`);
 });
 
 // Encerramento limpo
 function encerrar() {
   console.log('\nEncerrando...');
   server.close(() => {
-    db.close();
+    store.fechar();
     process.exit(0);
   });
 }
