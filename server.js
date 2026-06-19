@@ -25,6 +25,9 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // Banco de dados
 // ----------------------------------------------------------------------------
 
+// Garante que a pasta do banco exista (ex.: /var/data num host como o Render).
+fs.mkdirSync(path.dirname(path.resolve(DB_PATH)), { recursive: true });
+
 const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL;');
 db.exec('PRAGMA foreign_keys = ON;');

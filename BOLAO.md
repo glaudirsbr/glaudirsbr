@@ -35,6 +35,20 @@ Variáveis de ambiente opcionais:
 | `PORT`    | `3000`        | Porta do servidor              |
 | `DB_PATH` | `./bolao.db`  | Caminho do arquivo SQLite      |
 
+## Deploy no Render (usar no celular)
+
+Para acessar pelo celular de qualquer lugar, hospede no [Render](https://render.com):
+
+1. Crie uma conta gratuita no Render (pode entrar com o GitHub).
+2. No painel, clique em **New → Blueprint**.
+3. Selecione este repositório. O Render lê o `render.yaml` automaticamente.
+4. Confirme e aguarde o build. No fim, você recebe um link público
+   `https://....onrender.com` — abra no navegador do celular. Pronto.
+
+> **Atenção (plano free):** o disco é efêmero, então os palpites são
+> apagados a cada novo deploy ou reinício do serviço. Para não perder os
+> dados, descomente o bloco `disk:` no `render.yaml` (exige plano pago).
+
 ## Estrutura
 
 ```
