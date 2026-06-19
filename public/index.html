@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#009739" />
+<title>🇧🇷 Bolão do Brasil — Copa 2026</title>
+<style>
+  /* ---------- Tema (cores do Brasil) ---------- */
+  :root {
+    --verde: #009739;
+    --verde-escuro: #00702a;
+    --amarelo: #ffdf00;
+    --azul: #002776;
+    --bg: #f4f6f4;
+    --card: #ffffff;
+    --texto: #1a1a1a;
+    --suave: #6b7280;
+    --borda: #e3e6e3;
+    --perigo: #c81e1e;
+    --raio: 14px;
+    --sombra: 0 2px 10px rgba(0, 0, 0, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--texto);
+    line-height: 1.4;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--verde), var(--verde-escuro));
+    color: #fff;
+    padding: 22px 16px;
+    text-align: center;
+    border-bottom: 4px solid var(--amarelo);
+  }
+  header h1 { margin: 0; font-size: 1.4rem; }
+  header p { margin: 4px 0 0; opacity: 0.9; font-size: 0.85rem; }
+
+  main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 16px;
+    padding-bottom: 48px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 1.05rem;
+    color: var(--azul);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  label { display: block; font-size: 0.85rem; color: var(--suave); margin-bottom: 6px; }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    font-size: 16px; /* evita zoom no iOS */
+    background: #fff;
+    color: var(--texto);
+  }
+  input:focus { outline: 2px solid var(--verde); border-color: var(--verde); }
+
+  .jogo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-top: 1px solid var(--borda);
+  }
+  .jogo:first-of-type { border-top: none; }
+  .jogo .info { flex: 1; min-width: 0; }
+  .jogo .times { font-weight: 600; font-size: 0.95rem; }
+  .jogo .data { font-size: 0.75rem; color: var(--suave); }
+
+  .placar { display: flex; align-items: center; gap: 6px; }
+  .placar input {
+    width: 48px;
+    text-align: center;
+    padding: 10px 4px;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .placar .x { color: var(--suave); font-weight: 700; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 12px 16px;
+    transition: filter 0.15s, background 0.15s;
+  }
+  button:active { filter: brightness(0.92); }
+
+  .btn-primario {
+    width: 100%;
+    background: var(--verde);
+    color: #fff;
+    margin-top: 14px;
+    font-size: 1.05rem;
+    padding: 14px;
+  }
+  .btn-primario:disabled { background: var(--suave); cursor: not-allowed; }
+
+  .acoes { display: flex; gap: 8px; margin-top: 12px; }
+  .acoes button { flex: 1; }
+  .btn-sec { background: var(--azul); color: #fff; }
+  .btn-perigo { background: #fff; color: var(--perigo); border: 1px solid var(--perigo); }
+
+  .contador { font-size: 0.85rem; color: var(--suave); margin: 0 0 10px; }
+
+  .palpite-item {
+    border: 1px solid var(--borda);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .palpite-item .topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .palpite-item .nome { font-weight: 700; color: var(--azul); word-break: break-word; }
+  .palpite-item .quando { font-size: 0.72rem; color: var(--suave); white-space: nowrap; }
+  .palpite-item .linhas { font-size: 0.9rem; }
+  .palpite-item .linha {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dashed var(--borda);
+  }
+  .palpite-item .linha:last-child { border-bottom: none; }
+  .palpite-item .linha .gols { font-weight: 700; }
+  .btn-remover {
+    margin-top: 8px;
+    background: transparent;
+    color: var(--perigo);
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  .btn-remover.confirmar { background: var(--perigo); color: #fff; }
+
+  .vazio { text-align: center; color: var(--suave); padding: 24px 8px; font-size: 0.9rem; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--azul);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 24px;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 100;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.erro { background: var(--perigo); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🇧🇷 Bolão do Brasil</h1>
+    <p>Palpites dos jogos do Brasil — Copa 2026</p>
+  </header>
+
+  <main>
+    <!-- Card 1: novo palpite -->
+    <section class="card">
+      <h2>✏️ Seu palpite</h2>
+      <label for="nome">Seu nome</label>
+      <input type="text" id="nome" placeholder="Ex.: João da Silva" maxlength="80" autocomplete="name" />
+
+      <div id="jogos" style="margin-top: 14px;"></div>
+
+      <button id="btnSalvar" class="btn-primario">Salvar palpite</button>
+    </section>
+
+    <!-- Card 2: palpites salvos -->
+    <section class="card">
+      <h2>📋 Palpites salvos</h2>
+      <p class="contador" id="contador">Carregando…</p>
+      <div id="lista"></div>
+      <div class="acoes">
+        <button id="btnExportar" class="btn-sec">📤 Exportar</button>
+        <button id="btnLimpar" class="btn-perigo">🗑️ Apagar todos</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+
+// ============================================================================
+// Dados dos jogos — edite este array para mudar/adicionar partidas.
+// Cada jogo precisa de `id` único (gera os IDs dos inputs: j1c=casa, j1f=fora).
+// ============================================================================
+const JOGOS = [
+  { id: "j1", casa: "Brasil", fora: "Marrocos", data: "13/jun · 19h" },
+  { id: "j2", casa: "Brasil", fora: "Haiti",    data: "19/jun" },
+  { id: "j3", casa: "Brasil", fora: "Escócia",  data: "24/jun" },
+];
+
+/** Rótulo curto do jogo, usado no registro salvo (ex.: "Bra×Mar"). */
+function rotuloJogo(j) {
+  return j.casa.slice(0, 3) + "×" + j.fora.slice(0, 3);
+}
+
+// ============================================================================
+// Banco — agora via API/SQLite (mesmas assinaturas da versão IndexedDB).
+// ============================================================================
+const API = "/api/palpites";
+
+async function abrirBanco() {
+  // Compatibilidade: na versão SQLite não há banco local para abrir.
+  // Mantida apenas para preservar o fluxo de inicialização.
+  return true;
+}
+
+async function salvarNoBanco(registro) {
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(registro),
+  });
+  if (!res.ok) {
+    const erro = await res.json().catch(() => ({}));
+    throw new Error(erro.erro || "Falha ao salvar.");
+  }
+  return res.json();
+}
+
+async function lerTodos() {
+  const res = await fetch(API);
+  if (!res.ok) throw new Error("Falha ao carregar.");
+  return res.json();
+}
+
+async function apagar(id) {
+  const res = await fetch(API + "/" + encodeURIComponent(id), { method: "DELETE" });
+  if (!res.ok) throw new Error("Falha ao remover.");
+}
+
+async function apagarTudo() {
+  const res = await fetch(API, { method: "DELETE" });
+  if (!res.ok) throw new Error("Falha ao apagar.");
+}
+
+// ============================================================================
+// Interface
+// ============================================================================
+const $ = (sel) => document.querySelector(sel);
+const elJogos = $("#jogos");
+const elLista = $("#lista");
+const elContador = $("#contador");
+const elNome = $("#nome");
+const elToast = $("#toast");
+
+/** Escapa HTML para evitar injeção ao renderizar a lista. */
+function escapar(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+let toastTimer = null;
+function toast(msg, erro = false) {
+  elToast.textContent = msg;
+  elToast.classList.toggle("erro", erro);
+  elToast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => elToast.classList.remove("show"), 2600);
+}
+
+/** Monta os campos de placar de cada jogo. */
+function montarJogos() {
+  elJogos.innerHTML = JOGOS.map((j) => `
+    <div class="jogo">
+      <div class="info">
+        <div class="times">${escapar(j.casa)} × ${escapar(j.fora)}</div>
+        <div class="data">${escapar(j.data)}</div>
+      </div>
+      <div class="placar">
+        <input type="number" id="${j.id}c" inputmode="numeric" maxlength="2"
+               min="0" max="99" placeholder="0" aria-label="Gols ${escapar(j.casa)}" />
+        <span class="x">×</span>
+        <input type="number" id="${j.id}f" inputmode="numeric" maxlength="2"
+               min="0" max="99" placeholder="0" aria-label="Gols ${escapar(j.fora)}" />
+      </div>
+    </div>
+  `).join("");
+}
+
+/** Renderiza a lista de palpites salvos (mais recente primeiro). */
+function renderLista(registros) {
+  elContador.textContent =
+    registros.length === 0
+      ? "Nenhum palpite salvo ainda."
+      : `${registros.length} palpite${registros.length > 1 ? "s" : ""} salvo${registros.length > 1 ? "s" : ""}.`;
+
+  if (registros.length === 0) {
+    elLista.innerHTML = '<div class="vazio">Seja o primeiro a palpitar! 🏆</div>';
+    return;
+  }
+
+  elLista.innerHTML = registros.map((r) => `
+    <div class="palpite-item">
+      <div class="topo">
+        <span class="nome">${escapar(r.nome)}</span>
+        <span class="quando">${escapar(r.quando)}</span>
+      </div>
+      <div class="linhas">
+        ${r.palpites.map((p) => `
+          <div class="linha">
+            <span>${escapar(p.jogo)}</span>
+            <span class="gols">${escapar(p.casa)} × ${escapar(p.fora)}</span>
+          </div>
+        `).join("")}
+      </div>
+      <button class="btn-remover" data-id="${escapar(r.id)}">Remover</button>
+    </div>
+  `).join("");
+}
+
+async function atualizarLista() {
+  try {
+    const registros = await lerTodos();
+    renderLista(registros);
+  } catch (e) {
+    elContador.textContent = "Erro ao carregar palpites.";
+    toast(e.message || "Erro ao carregar.", true);
+  }
+}
+
+/** Monta o texto de exportação de todos os palpites. */
+function montarTextoExport(registros) {
+  let txt = "🇧🇷 Bolão do Brasil — Copa 2026\n\n";
+  registros.forEach((r) => {
+    txt += `👤 ${r.nome} (${r.quando})\n`;
+    r.palpites.forEach((p) => {
+      txt += `   ${p.jogo}: ${p.casa} × ${p.fora}\n`;
+    });
+    txt += "\n";
+  });
+  return txt.trim();
+}
+
+// ============================================================================
+// Eventos
+// ============================================================================
+
+// Salvar palpite
+$("#btnSalvar").addEventListener("click", async () => {
+  const nome = elNome.value.trim();
+  if (!nome) {
+    toast("Digite seu nome.", true);
+    elNome.focus();
+    return;
+  }
+
+  const palpites = [];
+  for (const j of JOGOS) {
+    const casa = $("#" + j.id + "c").value.trim();
+    const fora = $("#" + j.id + "f").value.trim();
+    if (casa === "" || fora === "") {
+      toast("Preencha todos os placares.", true);
+      return;
+    }
+    palpites.push({ jogo: rotuloJogo(j), casa: Number(casa), fora: Number(fora) });
+  }
+
+  const btn = $("#btnSalvar");
+  btn.disabled = true;
+  try {
+    await salvarNoBanco({ nome, palpites });
+    toast("Palpite salvo! ⚽");
+    elNome.value = "";
+    JOGOS.forEach((j) => {
+      $("#" + j.id + "c").value = "";
+      $("#" + j.id + "f").value = "";
+    });
+    await atualizarLista();
+  } catch (e) {
+    toast(e.message || "Erro ao salvar.", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Remover individual (duplo toque: "Remover" -> "Confirmar?")
+elLista.addEventListener("click", async (ev) => {
+  const btn = ev.target.closest(".btn-remover");
+  if (!btn) return;
+
+  if (!btn.classList.contains("confirmar")) {
+    btn.classList.add("confirmar");
+    btn.textContent = "Confirmar?";
+    btn._reset = setTimeout(() => {
+      btn.classList.remove("confirmar");
+      btn.textContent = "Remover";
+    }, 3000);
+    return;
+  }
+
+  clearTimeout(btn._reset);
+  try {
+    await apagar(btn.dataset.id);
+    toast("Palpite removido.");
+    await atualizarLista();
+  } catch (e) {
+    toast(e.message || "Erro ao remover.", true);
+  }
+});
+
+// Apagar todos
+$("#btnLimpar").addEventListener("click", async () => {
+  const registros = await lerTodos().catch(() => []);
+  if (registros.length === 0) {
+    toast("Não há palpites para apagar.");
+    return;
+  }
+  if (!confirm("Apagar TODOS os palpites? Esta ação não pode ser desfeita.")) return;
+  try {
+    await apagarTudo();
+    toast("Todos os palpites foram apagados.");
+    await atualizarLista();
+  } catch (e) {
+    toast(e.message || "Erro ao apagar.", true);
+  }
+});
+
+// Exportar (navigator.share com fallback para clipboard)
+$("#btnExportar").addEventListener("click", async () => {
+  const registros = await lerTodos().catch(() => []);
+  if (registros.length === 0) {
+    toast("Não há palpites para exportar.");
+    return;
+  }
+  const texto = montarTextoExport(registros);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Bolão do Brasil", text: texto });
+      return;
+    } catch {
+      // usuário cancelou ou share falhou — tenta clipboard abaixo
+    }
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast("Palpites copiados! 📋");
+      return;
+    } catch {
+      /* cai no fallback final */
+    }
+  }
+
+  toast("Não foi possível exportar neste dispositivo.", true);
+});
+
+// ============================================================================
+// Início
+// ============================================================================
+(async function init() {
+  montarJogos();
+  try {
+    await abrirBanco();
+    await atualizarLista();
+  } catch (e) {
+    toast("Erro ao iniciar: " + (e.message || e), true);
+  }
+})();
+</script>
+</body>
+</html>

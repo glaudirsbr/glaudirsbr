@@ -1,0 +1,11 @@
+# Banco SQLite (gerado em runtime)
+bolao.db
+bolao.db-shm
+bolao.db-wal
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Sistema
+.DS_Store

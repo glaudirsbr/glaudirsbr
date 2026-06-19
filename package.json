@@ -1,0 +1,14 @@
+{
+  "name": "bolao-do-brasil",
+  "version": "1.0.0",
+  "description": "Bolão do Brasil — Copa 2026 (palpites com persistência em SQLite)",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT"
+}
